@@ -20,12 +20,12 @@ screenRes(SCR_W, SCR_H, 32, , Fb.GFX_ALPHA_PRIMITIVES)
 color rgb(0, 0, 0), rgb(255, 255, 255)
 cls()
 
-var f = ttf_font_fromFile("fonts/ReadexPro-Regular.ttf")
+var f = ttf_font_fromFile("fonts/ariali.ttf")
 dim as string text = "Rotated text!"
 
 dim as long mx, my
 dim as long n = 5
-dim as single r = 0, angleSlice = 360.0 / n
+dim as single r = 20, angleSlice = 360.0 / n
 
 do
   getMouse(mx, my)
@@ -34,7 +34,7 @@ do
     cls()
     
     for i as integer = 0 to n - 1
-      dim as single px = r * cos(i * angleSlice), py = r * sin(i * angleSlice)
+      dim as single px = r * cos(rad(i * angleSlice)), py = r * sin(rad(i * angleSlice))
       
       ttf_font_render_rotated(f, mx + px, my + py, text, 48, rgb(0, 0, 0), rad(i * angleSlice))
     next

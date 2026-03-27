@@ -613,15 +613,15 @@ private sub ttf_font_renderGlyph_rotated( _
   r as ttf_clip_region, _
   ox as long, oy as long, _
   penX16 as long, _
-  bx as long, by_ as long, _
+  bx as long, by as long, _
   alphaChannel as ubyte ptr, _
   gProps as fbtt_GlyphProps, _
   clr as ulong, _
   cosA16 as long, sinA16 as long, _
   buff as Fb.Image ptr = 0)
 
-  #define __rmin__(_a_, _b_) iif((_a_) < (_b_), _a_, _b_)
-  #define __rmax__(_a_, _b_) iif((_a_) > (_b_), _a_, _b_)
+  #define __min__(_a_, _b_) iif((_a_) < (_b_), _a_, _b_)
+  #define __max__(_a_, _b_) iif((_a_) > (_b_), _a_, _b_)
 
   '' ── destination buffer setup ──────────────────────────────────────────────
   dim as ulong ptr dstp
@@ -638,23 +638,23 @@ private sub ttf_font_renderGlyph_rotated( _
     dstStride = dstWidth
   end if
 
-  '' ── rotate the 4 glyph corners to find the dest-space AABB ───────────────
+  '' Rotate the 4 glyph corners to find the dest-space AABB
   '' Corners in unrotated space, relative to string origin:
-  ''   top-left  = (penX+bx,   by_)
-  ''   top-right = (penX+bx+w, by_)
-  ''   bot-left  = (penX+bx,   by_+h)
-  ''   bot-right = (penX+bx+w, by_+h)
+  ''   top-left  = (penX + bx,   by)
+  ''   top-right = (penX + bx+w, by)
+  ''   bot-left  = (penX + bx,   by + h)
+  ''   bot-right = (penX + bx+w, by + h)
   '' CCW rotation matrix (Y-down screen coords):
-  ''   x' =  ux*cos - uy*sin
-  ''   y' =  ux*sin + uy*cos
+  ''   x' =  ux * cos - uy * sin
+  ''   y' =  ux * sin + uy * cos
   '' longint intermediates prevent 32-bit overflow on large coords.
 
   dim as long penX = penX16 shr 16
 
-  dim as long ux0 = penX + bx,            uy0 = by_
-  dim as long ux1 = penX + bx + gProps.w, uy1 = by_
-  dim as long ux2 = penX + bx,            uy2 = by_ + gProps.h
-  dim as long ux3 = penX + bx + gProps.w, uy3 = by_ + gProps.h
+  dim as long ux0 = penX + bx,            uy0 = by
+  dim as long ux1 = penX + bx + gProps.w, uy1 = by
+  dim as long ux2 = penX + bx,            uy2 = by + gProps.h
+  dim as long ux3 = penX + bx + gProps.w, uy3 = by + gProps.h
 
   dim as long rx0 = cint((clngint(ux0) * cosA16 - clngint(uy0) * sinA16) shr 16) + ox
   dim as long ry0 = cint((clngint(ux0) * sinA16 + clngint(uy0) * cosA16) shr 16) + oy
@@ -666,47 +666,47 @@ private sub ttf_font_renderGlyph_rotated( _
   dim as long ry3 = cint((clngint(ux3) * sinA16 + clngint(uy3) * cosA16) shr 16) + oy
 
   '' AABB expanded by 1 to cover bilinear fringe pixels
-  dim as long aabbX0 = __rmin__(__rmin__(rx0, rx1), __rmin__(rx2, rx3)) - 1
-  dim as long aabbY0 = __rmin__(__rmin__(ry0, ry1), __rmin__(ry2, ry3)) - 1
-  dim as long aabbX1 = __rmax__(__rmax__(rx0, rx1), __rmax__(rx2, rx3)) + 1
-  dim as long aabbY1 = __rmax__(__rmax__(ry0, ry1), __rmax__(ry2, ry3)) + 1
+  dim as long aabbX0 = __min__(__min__(rx0, rx1), __min__(rx2, rx3)) - 1
+  dim as long aabbY0 = __min__(__min__(ry0, ry1), __min__(ry2, ry3)) - 1
+  dim as long aabbX1 = __max__(__max__(rx0, rx1), __max__(rx2, rx3)) + 1
+  dim as long aabbY1 = __max__(__max__(ry0, ry1), __max__(ry2, ry3)) + 1
 
-  '' ── apply clip rect ───────────────────────────────────────────────────────
-  dim as long cx1 = __rmax__(aabbX0, __rmax__(0, r.x1))
-  dim as long cy1 = __rmax__(aabbY0, __rmax__(0, r.y1))
-  dim as long cx2 = __rmin__(aabbX1, __rmin__(dstWidth  - 1, r.x2 - 1))
-  dim as long cy2 = __rmin__(aabbY1, __rmin__(dstHeight - 1, r.y2 - 1))
+  '' Clip AABB
+  dim as long cx1 = __max__(aabbX0, __max__(0, r.x1))
+  dim as long cy1 = __max__(aabbY0, __max__(0, r.y1))
+  dim as long cx2 = __min__(aabbX1, __min__(dstWidth  - 1, r.x2 - 1))
+  dim as long cy2 = __min__(aabbY1, __min__(dstHeight - 1, r.y2 - 1))
 
   if cx1 > cx2 orElse cy1 > cy2 then
     return
   end if
 
   '' ── composite setup ───────────────────────────────────────────────────────
-  dim as ulong opacity  = culng(clr) shr 24
+  dim as ulong opacity  = clr shr 24
   dim as ulong opScale  = opacity + 1
   dim as ulong clrRGB   = clr and &h00FFFFFF
   dim as long srcStride = gProps.w
 
   '' Glyph-local origin in unrotated space, 16.16: pen + bearing
   dim as longint penBx16 = clngint(penX16) + clngint(bx) shl 16
-  dim as longint penBy16 = clngint(by_) shl 16
+  dim as longint penBy16 = clngint(by) shl 16
 
   '' Glyph bounds in 16.16 for the hot-loop bounds check
   dim as longint wLim16 = clngint(gProps.w - 1) shl 16
   dim as longint hLim16 = clngint(gProps.h - 1) shl 16
 
-  '' ── hot loop ──────────────────────────────────────────────────────────────
+  '' Render loop
   for dy as long = cy1 to cy2
     for dx as long = cx1 to cx2
       '' Translate dest pixel relative to string origin
       dim as long relX  = dx - ox
-      dim as long relY_ = dy - oy
+      dim as long relY  = dy - oy
 
       '' Inverse-rotate (transpose of CCW = CW):
       ''   sx =  relX*cos + relY*sin
       ''   sy = -relX*sin + relY*cos
-      dim as longint sx16 =  clngint(relX)  * cosA16 + clngint(relY_) * sinA16
-      dim as longint sy16 = -clngint(relX)  * sinA16 + clngint(relY_) * cosA16
+      dim as longint sx16 =  clngint(relX)  * cosA16 + clngint(relY) * sinA16
+      dim as longint sy16 = -clngint(relX)  * sinA16 + clngint(relY) * cosA16
 
       '' Subtract pen + bearing to get glyph-local fractional coord (16.16)
       dim as longint lx16 = sx16 - penBx16
@@ -719,8 +719,8 @@ private sub ttf_font_renderGlyph_rotated( _
       '' Bilinear sample — integer pixel coords
       dim as long sx0 = cint(lx16 shr 16)
       dim as long sy0 = cint(ly16 shr 16)
-      dim as long sx1 = __rmin__(sx0 + 1, gProps.w - 1)
-      dim as long sy1 = __rmin__(sy0 + 1, gProps.h - 1)
+      dim as long sx1 = __min__(sx0 + 1, gProps.w - 1)
+      dim as long sy1 = __min__(sy0 + 1, gProps.h - 1)
 
       '' Sub-pixel fractional parts, scaled 0..255
       dim as ulong fx = cint(lx16 shr 8) and &hFF
@@ -737,7 +737,7 @@ private sub ttf_font_renderGlyph_rotated( _
         a10 * fx         * (256 - fy) + _
         a01 * (256 - fx) * fy         + _
         a11 * fx         * fy          _
-      ) shr 16
+        ) shr 16
 
       if srcA = 0 then continue for
 
@@ -797,17 +797,17 @@ sub ttf_font_render_rotated overload( _
   dim as long penX16 = 0  '' accumulated advance in unrotated space, 16.16
 
   for i as integer = 0 to nChars - 1
-    dim as long char_ = text[i]
+    dim as long char = text[i]
 
-    if char_ >= 32 then
-      dim as long index1 = fbtt_GetGlyphIndex(f->_fontData, char_)
+    if char >= 32 then
+      dim as long index1 = fbtt_GetGlyphIndex(f->_fontData, char)
 
       if index1 <> FBTT_GLYPH_NOT_FOUND then
         dim as long index2 = iif(i < nChars - 1, fbtt_GetGlyphIndex(f->_fontData, text[i + 1]), 0)
         index2 = iif(index2 = FBTT_GLYPH_NOT_FOUND, 0, index2)
 
         if fbtt_GetGlyphProperties(f->_fontData, fProps, gProps, index1, index2) = 0 then
-          if char_ > 32 then
+          if char > 32 then
             dim as ubyte ptr alphaCh = dh_find(f->_glyphs, size, index1)
 
             if alphaCh = 0 then
@@ -874,17 +874,17 @@ sub ttf_font_render_rotated_unicode overload( _
   dim as long penX16 = 0
 
   for i as integer = 0 to nChars - 1
-    dim as long char_ = text[i]
+    dim as long char = text[i]
 
-    if char_ >= 32 then
-      dim as long index1 = fbtt_GetGlyphIndex(f->_fontData, char_)
+    if char >= 32 then
+      dim as long index1 = fbtt_GetGlyphIndex(f->_fontData, char)
 
       if index1 <> FBTT_GLYPH_NOT_FOUND then
         dim as long index2 = iif(i < nChars - 1, fbtt_GetGlyphIndex(f->_fontData, text[i + 1]), 0)
         index2 = iif(index2 = FBTT_GLYPH_NOT_FOUND, 0, index2)
 
         if fbtt_GetGlyphProperties(f->_fontData, fProps, gProps, index1, index2) = 0 then
-          if char_ > 32 then
+          if char > 32 then
             dim as ubyte ptr alphaCh = dh_find(f->_glyphs, size, index1)
 
             if alphaCh = 0 then
