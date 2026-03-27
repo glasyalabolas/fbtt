@@ -12,7 +12,10 @@ const as single _
 const as long SCR_W       = 1280
 const as long SCR_H       = 700
 
-setDPIAwareness()
+#ifdef setDPIAwareness
+  setDPIAwareness()
+#endif
+
 screenRes(SCR_W, SCR_H, 32, , Fb.GFX_ALPHA_PRIMITIVES)
 color rgb(0, 0, 0), rgb(255, 255, 255)
 cls()
