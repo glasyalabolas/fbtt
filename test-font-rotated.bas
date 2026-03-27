@@ -3,7 +3,6 @@
 
 const as single _
   C_PI = 4.0f * atn(1.0f), _
-  C_2PI = 2.0f * C_PI, _
   C_DEGTORAD = C_PI / 180.0f, _
   C_RADTODEG = 180.0f / C_PI
 
