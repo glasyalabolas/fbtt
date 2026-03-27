@@ -3,7 +3,7 @@
 
 #include once "fbgfx.bi"
 
-'' Comment this if you want to use the dynamic lib
+'' Comment this if you want to use a shared lib
 #define USE_STATIC_LIB
 
 #ifdef __FB_WIN32__

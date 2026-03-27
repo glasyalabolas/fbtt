@@ -116,9 +116,14 @@ function ttf_font_measureChars(f as ttf_font ptr, text as string, size as long, 
           cx += gProps.advanceWidth + gProps.kernAdvance
           
           ch(i).width = cx - pcx
-        endif
-      endif
-    endif
+        end if
+      else
+        if char <= 32 then
+          ch(i).width = size shr 1
+          cx += size shr 1
+        end if
+      end if
+    end if
   next
   
   return nChars
@@ -160,9 +165,14 @@ function ttf_font_measureChars_unicode(f as ttf_font ptr, text as wstring, size 
           cx += gProps.advanceWidth + gProps.kernAdvance
           
           ch(i).width = cx - pcx
-        endif
-      endif
-    endif
+        end if
+      else
+        if char <= 32 then
+          ch(i).width = size shr 1
+          cx += size shr 1
+        end if
+      end if
+    end if
   next
   
   return nChars
@@ -205,9 +215,16 @@ function ttf_font_measureChars_exact(f as ttf_font ptr, text as string, size as 
           ch(i).height = gProps.h
           
           cx += gProps.advanceWidth + gProps.kernAdvance
-        endif
-      endif
-    endif
+        end if
+      else
+        if char <= 32 then
+          ch(i).width = size shr 1
+          ch(i).height = height
+
+          cx += size shr 1
+        end if
+      end if
+    end if
   next
   
   return nChars
@@ -248,9 +265,16 @@ function ttf_font_measureChars_exact_unicode(f as ttf_font ptr, text as wstring,
           ch(i).height = gProps.h
           
           cx += gProps.advanceWidth + gProps.kernAdvance
-        endif
-      endif
-    endif
+        end if
+      else
+        if char <= 32 then
+          ch(i).width = size shr 1
+          ch(i).height = height
+
+          cx += size shr 1
+        end if
+      end if
+    end if
   next
   
   return nChars
@@ -287,9 +311,13 @@ function ttf_font_measure(f as ttf_font ptr, text as string, size as long) as tt
         
         if fbtt_GetGlyphProperties(f->_fontData, fProps, gProps, index1, index2) = 0 then
           result.width += gProps.advanceWidth + gProps.kernAdvance
-        endif
-      endif
-    endif
+        end if
+      else
+        if char <= 32 then
+          result.width += size shr 1
+        end if
+      end if
+    end if
   next
   
   return result
@@ -325,9 +353,13 @@ function ttf_font_measure_unicode(f as ttf_font ptr, text as wstring, size as lo
         
         if fbtt_GetGlyphProperties(f->_fontData, fProps, gProps, index1, index2) = 0 then
           result.width += gProps.advanceWidth + gProps.kernAdvance
-        endif
-      endif
-    endif
+        end if
+      else
+        if char <= 32 then
+          result.width += size shr 1
+        end if
+      end if
+    end if
   next
   
   return result
@@ -504,14 +536,19 @@ sub ttf_font_render overload( _
             
             if alphaCh then
               dim as long offset = iif(useBaseline, 0, bb.y1)
-              ttf_font_renderGlyph_clipped(r, cx + gProps.x0, cy + gProps.y0 + offset, alphaCh, gProps, clr, buff, culng(clr) shr 24, offset)
+              ttf_font_renderGlyph_clipped(r, cx + gProps.x0, cy + gProps.y0 + offset, alphaCh, gProps, clr, buff, clr shr 24, offset)
             end if
           end if
 
           cx += gProps.advanceWidth + gProps.kernAdvance
-        endif
-      endif
-    endif
+        end if
+      else
+        '' Glyph wasn't found. Check if it's a space and advance cursor by a default amount
+        if char <= 32 then
+          cx += size shr 1
+        end if
+      end if
+    end if
   next
 end sub
 
@@ -576,9 +613,13 @@ sub ttf_font_render_unicode overload( _
           end if
 
           cx += gProps.advanceWidth + gProps.kernAdvance
-        endif
-      endif
-    endif
+        end if
+      else
+        if char <= 32 then
+          cx += size shr 1
+        end if
+      end if
+    end if
   next
 end sub
 
@@ -623,7 +664,7 @@ private sub ttf_font_renderGlyph_rotated( _
   #define __min__(_a_, _b_) iif((_a_) < (_b_), _a_, _b_)
   #define __max__(_a_, _b_) iif((_a_) > (_b_), _a_, _b_)
 
-  '' ── destination buffer setup ──────────────────────────────────────────────
+  '' Destination buffer setup
   dim as ulong ptr dstp
   dim as long dstStride, dstWidth, dstHeight
 
@@ -633,7 +674,7 @@ private sub ttf_font_renderGlyph_rotated( _
     dstWidth  = buff->width
     dstHeight = buff->height
   else
-    dstp = cptr(ulong ptr, screenptr())
+    dstp = screenptr()
     screenInfo(dstWidth, dstHeight)
     dstStride = dstWidth
   end if
@@ -681,7 +722,7 @@ private sub ttf_font_renderGlyph_rotated( _
     return
   end if
 
-  '' ── composite setup ───────────────────────────────────────────────────────
+  '' Composite setup
   dim as ulong opacity  = clr shr 24
   dim as ulong opScale  = opacity + 1
   dim as ulong clrRGB   = clr and &h00FFFFFF
@@ -691,7 +732,7 @@ private sub ttf_font_renderGlyph_rotated( _
   dim as longint penBx16 = clngint(penX16) + clngint(bx) shl 16
   dim as longint penBy16 = clngint(by) shl 16
 
-  '' Glyph bounds in 16.16 for the hot-loop bounds check
+  '' Glyph bounds in 16.16 for the loop bounds check
   dim as longint wLim16 = clngint(gProps.w - 1) shl 16
   dim as longint hLim16 = clngint(gProps.h - 1) shl 16
 
@@ -716,7 +757,7 @@ private sub ttf_font_renderGlyph_rotated( _
         continue for
       end if
 
-      '' Bilinear sample — integer pixel coords
+      '' Bilinear sample - integer pixel coords
       dim as long sx0 = cint(lx16 shr 16)
       dim as long sy0 = cint(ly16 shr 16)
       dim as long sx1 = __min__(sx0 + 1, gProps.w - 1)
@@ -731,7 +772,7 @@ private sub ttf_font_renderGlyph_rotated( _
       dim as ulong a01 = alphaChannel[sy1 * srcStride + sx0]
       dim as ulong a11 = alphaChannel[sy1 * srcStride + sx1]
 
-      '' Bilinear interpolation — result in 0..255
+      '' Bilinear interpolation - result in 0..255
       dim as ulong srcA = ( _
         a00 * (256 - fx) * (256 - fy) + _
         a10 * fx         * (256 - fy) + _
@@ -823,9 +864,14 @@ sub ttf_font_render_rotated overload( _
           end if
 
           penX16 += (gProps.advanceWidth + gProps.kernAdvance) shl 16
-        endif
-      endif
-    endif
+        end if
+      else
+        '' Glyph wasn't found. Check if it's a space and advance cursor by a default amount
+        if char <= 32 then
+          penX16 += (size shr 1) shl 16
+        end if
+      end if
+    end if
   next
 end sub
 
@@ -900,9 +946,13 @@ sub ttf_font_render_rotated_unicode overload( _
           end if
 
           penX16 += (gProps.advanceWidth + gProps.kernAdvance) shl 16
-        endif
-      endif
-    endif
+        end if
+      else
+        if char <= 32 then
+          penX16 += (size shr 1) shl 16
+        end if
+      end if
+    end if
   next
 end sub
 
